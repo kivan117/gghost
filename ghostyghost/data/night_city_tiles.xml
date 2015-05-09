@@ -1,0 +1,10 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+    <input file="night_city.png" type="png" tile-width="8" tile-height="8" />
+    <output file="night_city_tiles.inc">
+	<tiles var-name="night_city_tiles"/>
+        <maps pointers-size="8">
+
+	</maps>	
+    </output>
+</gfx-xform>

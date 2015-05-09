@@ -1,0 +1,10 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+    <input file="foreground_tiles.png" type="png" tile-width="8" tile-height="8" />
+    <output file="foreground_tiles.inc">
+	<tiles var-name="foreground_tiles"/>
+        <maps pointers-size="8">
+
+	</maps>	
+    </output>
+</gfx-xform>

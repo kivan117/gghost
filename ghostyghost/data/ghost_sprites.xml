@@ -1,0 +1,28 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+    <input file="large_ghosts.png" type="png" tile-width="8" tile-height="8" />
+    <output file="ghost_sprites.inc">
+	<tiles var-name="ghost_sprites"/>
+        <maps pointers-size="8">
+	    <map var-name="ghost0" left="0" top="0" width="3" height="3"/>
+	    <map var-name="ghost1" left="3" top="0" width="3" height="3"/>
+	    <map var-name="ghost2" left="6" top="0" width="3" height="3"/>
+	    <map var-name="ghost3" left="0" top="3" width="3" height="3"/>
+	    <map var-name="ghost4" left="3" top="3" width="3" height="3"/>
+	    <map var-name="ghost5" left="6" top="3" width="3" height="3"/>
+	    <map var-name="ghost6" left="0" top="6" width="3" height="3"/>
+	    <map var-name="ghost7" left="3" top="6" width="3" height="3"/>
+	    <map var-name="ghost8" left="6" top="6" width="3" height="3"/>
+	    <map var-name="num0" left="0" top="9" width="1" height="2"/>
+	    <map var-name="num1" left="1" top="9" width="1" height="2"/>
+	    <map var-name="num2" left="2" top="9" width="1" height="2"/>
+	    <map var-name="num3" left="3" top="9" width="1" height="2"/>
+	    <map var-name="num4" left="4" top="9" width="1" height="2"/>
+	    <map var-name="num5" left="5" top="9" width="1" height="2"/>
+	    <map var-name="num6" left="6" top="9" width="1" height="2"/>
+	    <map var-name="num7" left="7" top="9" width="1" height="2"/>
+	    <map var-name="num8" left="8" top="9" width="1" height="2"/>
+	    <map var-name="num9" left="9" top="9" width="1" height="2"/>
+	</maps>	
+    </output>
+</gfx-xform>

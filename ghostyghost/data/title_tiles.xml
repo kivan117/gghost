@@ -1,0 +1,14 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+    <input file="title_tiles.png" type="png" tile-width="8" tile-height="8" />
+    <output file="title_tiles.inc">
+	<tiles var-name="title_tiles"/>
+        <maps pointers-size="8">
+	<map var-name="title_gh" left="0" top="1" width="6" height="4"/>
+	<map var-name="title_st" left="6" top="1" width="5" height="4"/>
+	<map var-name="title_y" left="11" top="1" width="3" height="4"/>
+	<map var-name="title_moon" left="0" top="5" width="3" height="3"/>
+	<map var-name="title_o" left="4" top="5" width="3" height="4"/>
+	</maps>	
+    </output>
+</gfx-xform>
