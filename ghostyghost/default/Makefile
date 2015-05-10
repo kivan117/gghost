@@ -9,7 +9,7 @@ MCU = atmega644
 TARGET = $(GAME).elf
 CC = avr-gcc
 INFO=../gameinfo.properties
-UZEBIN_DIR = ../../uzebox_bin_Win32_dev_trunk_r212/bin/
+UZEBIN_DIR = c:/uze_workspace/uzebox_bin_Win32_dev_trunk_r212/bin/
 
 ## Kernel settings
 KERNEL_DIR = ../../kernel

@@ -392,20 +392,22 @@ static void gameSetup()
 	player_y = 40;
 	yspeed = 0; //make sure we start at 0 speed
 
-	//select a random color for the ghost and set the appropriate sprite
-	ghost_color=(prng()%3); //the ghost has 3 frames and 3 color options, so we set the active sprite to the frame count (0 - 2) + the color (0, 3, or 6) to get the correct sprite
-	ghost_color=(ghost_color+(ghost_color<<1));
-	current_sprite = player_sprites[current_frame+ghost_color];
-	//assign and move the player image to start the new game
-	MapSprite2(0,current_sprite,0);
-	MoveSprite(0,player_x,player_y,2,2);
-
 	//draw the background
 	for(u8 i = 0; i < VRAM_TILES_H; i++)
 	{
 		pipe_alarm=2; //make sure we never draw a column while we're drawing the starting screen
 		loadNextStripe(); //go through each column and draw the background
 	}
+
+	//select a random color for the ghost and set the appropriate sprite
+	ghost_color=(prng()%3); //the ghost has 3 frames and 3 color options, so we set the active sprite to the frame count (0 - 2) + the color (0, 3, or 6) to get the correct sprite
+	ghost_color=(ghost_color+(ghost_color<<1));
+	current_sprite = player_sprites[current_frame+ghost_color];
+	//assign and move the player image to start the new game
+	MoveSprite(0,player_x,player_y,3,3);
+	MapSprite2(0,current_sprite,0);
+	//make player visible
+	SetSpriteVisibility(true);
 
 	//reset variables to draw new columns correctly
 	current_pipe=0;
@@ -415,8 +417,7 @@ static void gameSetup()
 
 	//turn scrolling on to begin the game
 	scrollingOn=true;
-	//make player visible
-	SetSpriteVisibility(true);
+
 }
 
 /**
