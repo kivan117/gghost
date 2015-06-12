@@ -133,7 +133,6 @@ state game_state = INTRO; ///< Tracks current state of the game.
 
 void processMainMenu(void);
 void processLocalHighScoreMenu(void);
-void processOnlineHighScoreMenu(void);
 void drawIntro(void);
 void processIntro(void);
 void initIntro(void);
