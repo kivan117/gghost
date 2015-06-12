@@ -415,8 +415,8 @@ void processControls(void){
 			if(lastbuttons!=joy) //if we're pressing a new button, not holding one
 			{
 				yspeed = -jumpspeed; //make player jump up
-				TriggerFx(4,0x88,true);//play our bouncing sound effects
-				TriggerFx(5,0x88,true);
+				TriggerFx(2,0x88,true);//play our bouncing sound effects
+				TriggerFx(3,0x88,true);
 				grav_tick=1; //reset gravity ticks. doing this ensures that no matter where the gravity timer was, we always get a consistent jump height
 			}
 		}
@@ -636,7 +636,7 @@ void processPlayerMotion(void){
 	{
 		if(scrollingOn) //if we're currently alive
 		{
-			TriggerFx(3,0x7f,true); //play collision sound
+			TriggerFx(1,0x7f,true); //play collision sound
 		    scrollingOn = false; //turn off scrolling (stop being alive)
 		}
 	}
@@ -661,7 +661,7 @@ void processPlayerMotion(void){
 		{
 			if(scrollingOn) //if we're still alive, play collision sound and stop being alive
 			{
-				TriggerFx(3,0x7f,true);
+				TriggerFx(1,0x7f,true);
 				scrollingOn = false;
 			}
 			yspeed=0; //stops us vertically (and accidentally creates a cool megaman friction-y sliding effect through the column)
@@ -1068,7 +1068,7 @@ void processIntro(void)
 	player_y = (u8)(100+pgm_read_byte(&(sine32[wave_tick]))); //set ghost height based on sine function
 	player_x++; //move ghost left to right 1 pixel
 	if(player_x == 104) //at correct moment, trigger sound effect
-		TriggerFx(13,0x88,true);
+		TriggerFx(4,0x88,true);
 	if(player_x > 224) //when ghost is off screen, end intro and move to main menu
 	{
 		ResumeSong();

@@ -49,27 +49,8 @@ const char patch00[] PROGMEM ={
 0,PATCH_END
 };
 
-//INST: Synth Piano
-const char patch01[] PROGMEM ={ 
-0,PC_WAVE,6,
-0,PC_ENV_SPEED,-5,
-0,PATCH_END
-};
-
-//FX: "Echo Droplet" 'rotate'
-const char patch02[] PROGMEM ={ 
-0,PC_ENV_SPEED,-12,
-5,PC_NOTE_UP,12, 
-5,PC_NOTE_DOWN,12,
-5,PC_NOTE_UP,12, 
-5,PC_NOTE_DOWN,12,
-5,PC_NOTE_CUT,0,
-0,PATCH_END
-};
-
-
 //Wall Smack
-const char patch03[] PROGMEM ={
+const char patch01[] PROGMEM ={
 0,PC_ENV_SPEED,-20,
 0,PC_NOISE_PARAMS,2,
 1,PC_ENV_VOL,0,
@@ -80,7 +61,7 @@ const char patch03[] PROGMEM ={
 };
 
 //Whoosh/Wing Flap
-const char patch04[] PROGMEM ={	
+const char patch02[] PROGMEM ={	
 0,PC_NOISE_PARAMS,1,
 0,PC_ENV_VOL,0x50,
 0,PC_ENV_SPEED,-40, 
@@ -89,7 +70,7 @@ const char patch04[] PROGMEM ={
 };
 
 //Jump Sound
-const char patch05[] PROGMEM ={	
+const char patch03[] PROGMEM ={	
 0,PC_ENV_SPEED,-30,
 0,PC_WAVE,0,
 0,PC_PITCH,55, 
@@ -99,81 +80,8 @@ const char patch05[] PROGMEM ={
 0,PATCH_END
 };
 
-
-//FX: 'drop'
-const char patch06[] PROGMEM ={	
-0,PC_ENV_SPEED,-15,
-0,PC_PITCH,90,
-2,PC_NOTE_DOWN,3,
-2,PC_NOTE_DOWN,4,
-2,PC_NOTE_DOWN,5,
-2,PC_NOTE_DOWN,6,
-2,PC_NOTE_CUT,0,
-0,PATCH_END
-};
-
-
-//INST: hi-hat
-const char patch07[] PROGMEM ={	
-0,PC_NOISE_PARAMS,1,
-0,PC_ENV_VOL,0x90,
-0,PC_ENV_SPEED,-30, 
-8,PC_NOTE_CUT,0,
-0,PATCH_END
-};
-
-
-//INST: organ
-const char patch08[] PROGMEM ={	
-0,PC_WAVE,8,
-1,PC_ENV_VOL,200, 
-1,PC_NOTE_HOLD,0,
-1,PC_ENV_SPEED,-25,
-0,PATCH_END
-};
-
-
-//INST: Crash cymbal
-const char patch09[] PROGMEM ={	
-0,PC_NOISE_PARAMS,0,
-0,PC_ENV_VOL,0xa0,
-0,PC_ENV_SPEED,-20, 
-1,PC_ENV_SPEED,-2,
-0,PC_NOISE_PARAMS,1,
-0,PATCH_END
-};
-
-//FX: drop floor noise
-const char patch10[] PROGMEM ={	
-0,PC_NOISE_PARAMS,3,
-0,PC_ENV_SPEED,-30, 
-3,PC_NOISE_PARAMS,0x6,
-4,PC_NOISE_PARAMS,0x9,
-3,PC_NOTE_CUT,0,
-0,PATCH_END
-};
-
-
-//INST: SawTooth
-const char patch11[] PROGMEM ={	
-0,PC_WAVE,1,
-1,PC_ENV_VOL,200,
-1,PC_NOTE_HOLD,0,
-1,PC_ENV_SPEED,-20, 
-0,PATCH_END
-};
-
-
-//Square Piano 2
-const char patch12[] PROGMEM ={	
-0,PC_WAVE,4,
-0,PC_ENV_SPEED,-15,  
-4,PC_ENV_SPEED,-7,  
-0,PATCH_END
-};
-
 //Logo "kling" sound
-const char patch13[] PROGMEM ={	
+const char patch04[] PROGMEM ={	
 0,PC_WAVE,8,
 0,PC_PITCH,85,
 4,PC_PITCH,90,
@@ -186,17 +94,8 @@ const char patch13[] PROGMEM ={
 
 const struct PatchStruct patches[] PROGMEM = {
 {0,NULL,patch00,0,0},
-{0,NULL,patch01,0,0},
-{0,NULL,patch02,0,0},
-{1,NULL,patch03,0,0},
-{1,NULL,patch04,0,0},
-{0,NULL,patch05,0,0},
-{0,NULL,patch06,0,0},
-{1,NULL,patch07,0,0}, 
-{0,NULL,patch08,0,0},
-{1,NULL,patch09,0,0},
-{1,NULL,patch10,0,0},
-{0,NULL,patch11,0,0},
-{0,NULL,patch12,0,0},
-{0,NULL,patch13,0,0}
+{1,NULL,patch01,0,0},
+{1,NULL,patch02,0,0},
+{0,NULL,patch03,0,0},
+{0,NULL,patch04,0,0}
 };
