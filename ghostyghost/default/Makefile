@@ -12,10 +12,11 @@ INFO=../gameinfo.properties
 UZEBIN_DIR = c:/uze_workspace/uzebox_bin_Win32_dev_trunk_r212/bin/
 
 ## Kernel settings
-KERNEL_DIR = ../../kernel
-KERNEL_OPTIONS  = -DVIDEO_MODE=3 -DINTRO_LOGO=0 -DSCROLLING=1 -DSOUND_CHANNEL_4_ENABLE=1
+KERNEL_DIR = c:/git-repo/Uzebox/uzebox/kernel
+KERNEL_OPTIONS  = -DVIDEO_MODE=3 -DINTRO_LOGO=0 -DSCROLLING=1 -DSOUND_MIXER=1 -DSOUND_CHANNEL_5_ENABLE=0
+KERNEL_OPTIONS += -DUART=1 -DDEBUG=1 -DUART_RX_BUFFER_SIZE=64 -DUART_TX_BUFFER_SIZE=64
 KERNEL_OPTIONS += -DMAX_SPRITES=18 -DRAM_TILES_COUNT=23 -DSCREEN_TILES_V=27 -DFIRST_RENDER_LINE=24
-KERNEL_OPTIONS += -DOVERLAY_LINES=0 -DVRAM_TILES_V=27
+KERNEL_OPTIONS += -DOVERLAY_LINES=0 -DVRAM_TILES_V=32
 
 ## Options common to compile, link and assembly rules
 COMMON = -mmcu=$(MCU)
@@ -23,8 +24,8 @@ COMMON = -mmcu=$(MCU)
 ## Linker flags
 LDFLAGS = $(COMMON)
 LDFLAGS += -Wl,-Map=$(GAME).map 
-LDFLAGS += -Wl,-gc-sections 
-LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x800300
+LDFLAGS += -Wl,-gc-sections
+LDFLAGS += -Wl,--section-start,.noinit=0x800100 -Wl,--section-start,.data=0x800500
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)

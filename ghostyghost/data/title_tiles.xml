@@ -9,6 +9,17 @@
 	<map var-name="title_y" left="11" top="1" width="3" height="4"/>
 	<map var-name="title_moon" left="0" top="5" width="3" height="3"/>
 	<map var-name="title_o" left="4" top="5" width="3" height="4"/>
+	<map var-name="mn_map_back" left="7" top="5" width="2" height="1"/>
+	<map var-name="mn_map_ybtn" left="9" top="5" width="1" height="1"/>
+	<map var-name="mn_map_abtn" left="10" top="5" width="1" height="1"/>
+	<map var-name="mn_map_local" left="11" top="5" width="3" height="1"/>
+	<map var-name="mn_map_online" left="11" top="6" width="3" height="1"/>
+	<map var-name="mn_map_save" left="7" top="6" width="2" height="1"/>
+	<map var-name="mn_map_start" left="9" top="6" width="2" height="1"/>
+	<map var-name="mn_map_newgame" left="7" top="7" width="4" height="1"/>
+	<map var-name="mn_map_enter" left="7" top="8" width="3" height="1"/>
+	<map var-name="mn_map_leftbtn" left="11" top="7" width="3" height="1"/>
+	<map var-name="mn_map_rightbtn" left="11" top="8" width="3" height="1"/>
 	</maps>	
     </output>
 </gfx-xform>
