@@ -79,12 +79,6 @@ uint_least8_t bg[32]; ///< array used to track state of a column of tiles, eithe
 const char * numbers[10] = {num0, num1, num2, num3, num4, num5, num6, num7, num8, num9}; ///< convenience array for displaying the floating score digit sprites
 const char * player_sprites[9] = {ghost0, ghost1, ghost2, ghost3, ghost4, ghost5, ghost6, ghost7, ghost8}; ///< convenience array for displaying the ghost sprites
 const char * current_sprite; ///< used as an index in player_sprites array to display correct ghost sprite
-//const char keyboard[40] = {'1','2','3','4','5','6','7','8','9','0',
-//                              'Q','W','E','R','T','Y','U','I','O','P',
-//                              'A','S','D','F','G','H','J','K','L',' ',
-//                              'Z','X','C','V','B','N','M',' ',' ',' '};
-
-//char name[8] = {'D','E','F','A','U','L','T',' '}; ///< the player name we will send alongside high scores, saved in  eeprom data blocks 18 to 27
 
 /**
  * \enum sky_state
@@ -97,7 +91,6 @@ sky_state current_sky = NIGHT; ///< holds the actual current state of the bg in 
  * \enum state
  * \brief Badly titled, but this is for the actual state of the game as a whole. Used for determining which screen to draw, what to do with player input, and what game logic to use.
  */
-//typedef enum {INTRO, MAIN_MENU, GAME, LOCAL_SCORES, ONLINE_SCORES, ENTER_NAME} state;
 typedef enum {INTRO, MAIN_MENU, GAME, LOCAL_SCORES} state;
 state game_state = INTRO; ///< Tracks current state of the game.
 
@@ -141,7 +134,6 @@ state game_state = INTRO; ///< Tracks current state of the game.
 void processMainMenu(void);
 void processLocalHighScoreMenu(void);
 void processOnlineHighScoreMenu(void);
-//void processNameMenu(void);
 void drawIntro(void);
 void processIntro(void);
 void initIntro(void);
@@ -155,15 +147,11 @@ static void gameSetup(void);
 void drawFrame(void);
 void drawMainMenu(void);
 void refreshMainMenuSound(void);
-//void refreshName(void);
 void drawLocalHighScoreMenu(void);
-//void drawOnlineHighScoreMenu(void);
-//void drawNameMenu(void);
 void drawMenuCursor(bool up);
 void eraseMenuCursor(void);
 void Save(u8 hiscore);
 void LoadScore(u8 index0, u8 index1);
-//void LoadName(void);
 void plusScore(void);
 u8 checkEeprom(void);
 void wipeEeprom(void);
@@ -205,7 +193,6 @@ int main(){
 			SetTileTable(title_tiles);
 			SetFontTilesIndex(TITLE_TILES_SIZE);
 			drawMainMenu();
-			//uzenet_state = INIT;
 			FadeIn(0,false);
 		}
 		//draw menu and handle input
@@ -214,7 +201,6 @@ int main(){
 			WaitVsync(1);
 			drawMenuCursor(false);
 			processMainMenu();
-			//processUzenet();
 		}
 		if(game_state== GAME)
 		{
@@ -255,46 +241,7 @@ int main(){
 		{
 			WaitVsync(1);
 			processLocalHighScoreMenu();
-			//processUzenet();
 		}
-		/*if(game_state == ONLINE_SCORES)
-		{
-			FadeOut(0,true);
-			SetTileTable(title_tiles);
-			SetFontTilesIndex(TITLE_TILES_SIZE);
-			drawOnlineHighScoreMenu(); //draw up the high score screen
-			FadeIn(0,false);
-			deathclock=120; //reset death timer to 2 seconds
-			//uzenet_state = SEND_HI_SCORES;
-			///if(score > topscores[9])
-			///{
-			///    LoadScore(0, 9); //load top 10 saved high scores
-			///    Save(score); //save our current score if it's high enough
-			///    drawOnlineHighScoreMenu(); //draw up the high score screen
-			///}
-		}
-		//draw and accepts input for the local high score screen
-		while(game_state == ONLINE_SCORES)
-		{
-			WaitVsync(1);
-			processOnlineHighScoreMenu();
-			//processUzenet();
-		}
-		if(game_state == ENTER_NAME)
-		{
-			FadeOut(0,true);
-			SetTileTable(title_tiles);
-			SetFontTilesIndex(TITLE_TILES_SIZE);
-			drawNameMenu(); //draw up the high score screen
-			FadeIn(0,false);
-		}
-		while(game_state == ENTER_NAME)
-		{
-			WaitVsync(1);
-			processNameMenu();
-			//processUzenet();
-		}
-		*/
     }
 }
 
@@ -324,8 +271,6 @@ static void initialSetup()
 	}
 	//load our top 10 saved scores from eeprom
 	LoadScore(0, 9);
-
-	//LoadName();
 }
 
 /**
@@ -480,14 +425,6 @@ void processControls(void){
 		{
 			if(deathclock<105)
 			{
-//				if(connected)
-//				{
-//					game_state = ENTER_NAME; //exit main game state, enter high score screen state (refer to main function)
-//				}
-//				else
-//				{
-//					game_state = LOCAL_SCORES; //exit main game state, enter high score screen state (refer to main function)
-//				}
 				game_state = LOCAL_SCORES; //exit main game state, enter high score screen state (refer to main function)
 			}
 		}
@@ -737,14 +674,6 @@ void processPlayerMotion(void){
 		deathclock--;
 		if(deathclock==0) //it's been 120 frames (2 seconds) since player died
 		{
-//			if(connected)
-//			{
-//				game_state = ENTER_NAME;
-//			}
-//			else
-//			{
-//				game_state = LOCAL_SCORES; //switch out of main game state to high score screen state (see main function)
-//			}
 			game_state = LOCAL_SCORES; //switch out of main game state to high score screen state (see main function)
 		}
 	}
@@ -858,11 +787,6 @@ void Save(u8 hiscore)
 	{
 		ebs.data[h] = topscores[h];
 	}
-
-//	for(u8 h = 0; h < 8; h++)
-//	{
-//		ebs.data[h+18] = name[h];
-//	}
 
 	ebs.data[17] = 0x17; //THIS IS KEY, we check this value to make sure the block is formatted correctly whenever the game is initially booted up
 
@@ -999,85 +923,7 @@ void drawLocalHighScoreMenu(void)
 		PrintInt(fakemod((drawX+11),VRAM_TILES_H),6+(i<<1),i+1, false);
 		Print(fakemod((drawX+12),VRAM_TILES_H),6+(i<<1),PSTR("."));
 	}
-
-//	if(connected)
-//	{
-//	    DrawMap(fakemod((drawX+24),VRAM_TILES_H),2,mn_map_rightbtn);
-//	    DrawMap(fakemod((drawX+24),VRAM_TILES_H),3,mn_map_online);
-//	}
 }
-
-/**
- * \brief Draws online high score menu.
- *
- * Uses the values saved in the onlinescores array, this allows displaying scores separately from sending/receiving.
- */
-//void drawOnlineHighScoreMenu(void)
-//{
-//	//set cursor for use with this menu (may one day be needed for scrolling)
-//	menu_x = fakemod((drawX+9),VRAM_TILES_H);
-//	menu_y = 15;
-//	ClearVram(); //blank screen
-//	drawFrame(); //draw generic gui frame
-//	Print(fakemod((drawX+7),VRAM_TILES_H),3,PSTR("ONLINE TOP SCORES")); //write menu title at top of screen
-//
-//	for(u8 i = 0; i < 10; i++) //print scores 1 - 10 from onlinescores array
-//	{
-//		PrintInt(fakemod((drawX+13),VRAM_TILES_H),6+(i<<1),onlinescores[i], false);
-//		PrintInt(fakemod((drawX+7),VRAM_TILES_H),6+(i<<1),i+1, false);
-//		Print(fakemod((drawX+8),VRAM_TILES_H),6+(i<<1),PSTR("."));
-//
-//		for(uint_least8_t k=0; k<8; k++)
-//		{
-//		PrintChar(fakemod((drawX+16+k),VRAM_TILES_H),6+(i<<1),name[k]);
-//		}
-//	}
-//
-//	DrawMap(fakemod((drawX+3),VRAM_TILES_H),2,mn_map_leftbtn);
-//	DrawMap(fakemod((drawX+3),VRAM_TILES_H),3,mn_map_local);
-//}
-
-/**
- * \brief Draws menu for name entry
- *
- * Let's player enter their preferred name for high scores and save it
- */
-//void drawNameMenu(void)
-//{
-//	//set cursor for use with this menu (may one day be needed for scrolling)
-//	ClearVram(); //blank screen
-//	drawFrame(); //draw generic gui frame
-//	menu_x = fakemod((drawX+6),VRAM_TILES_H);
-//	menu_y = 14;
-//	Print(fakemod((drawX+9),VRAM_TILES_H),3,PSTR("PLAYER NAME:")); //write menu title at top of screen
-//
-//	refreshName();
-//
-//	DrawMap(fakemod((drawX+10),VRAM_TILES_H),9,mn_map_ybtn);
-//	DrawMap(fakemod((drawX+10),VRAM_TILES_H),10,mn_map_back);
-//	DrawMap(fakemod((drawX+14),VRAM_TILES_H),9,mn_map_abtn);
-//	DrawMap(fakemod((drawX+14),VRAM_TILES_H),10,mn_map_enter);
-//	DrawMap(fakemod((drawX+18),VRAM_TILES_H),9,mn_map_start);
-//	DrawMap(fakemod((drawX+18),VRAM_TILES_H),10,mn_map_save);
-//
-//	for(u8 y = 0; y < 4; y++)
-//	{
-//		for(u8 x = 0; x < 10; x++)
-//		{
-//			PrintChar(fakemod((drawX+6+(x<<1)),VRAM_TILES_H),13+(y<<1)+y,keyboard[x+((y<<3) + (y<<1))]); //draw the char in keyboard [x][y] but spaced out 2 wide and 3 high
-//		}
-//	}
-//
-//	drawMenuCursor(true);
-//	DrawMap(fakemod((drawX+3),VRAM_TILES_H),2,mn_map_leftbtn);
-//	DrawMap(fakemod((drawX+3),VRAM_TILES_H),3,mn_map_local);
-//	if(connected)
-//	{
-//	    DrawMap(fakemod((drawX+24),VRAM_TILES_H),2,mn_map_rightbtn);
-//	    DrawMap(fakemod((drawX+24),VRAM_TILES_H),3,mn_map_online);
-//	}
-//
-//}
 
 /**
  * \brief Helper function to draw cursor for menus.
@@ -1112,17 +958,6 @@ void refreshMainMenuSound()
 }
 
 /**
- * \brief Helper function to update sound "on/off" on main menu.
- */
-//void refreshName()
-//{
-//	for(u8 i = 0; i < 8; i++)
-//	{
-//		PrintChar(fakemod((drawX+11+i),VRAM_TILES_H),6,name[i]);
-//	}
-//}
-
-/**
  * \brief Processes controller input during local high score menu.
  */
 void processLocalHighScoreMenu(void)
@@ -1138,239 +973,9 @@ void processLocalHighScoreMenu(void)
 			//switch our game state to game, which pops us out of the main menu and into the game (refer to main function)
 			game_state = GAME;
 		}
-//		if((joy&BTN_SR))
-//		{
-//			if(connected)
-//			{
-//			//switch our game state to online scores screen
-//			game_state = ONLINE_SCORES;
-//			}
-//		}
 	}
 	lastbuttons=joy;
 }
-
-/**
- * \brief Processes controller input during online high score menu.
- */
-void processOnlineHighScoreMenu(void)
-{
-	//read in our player one joypad input
-	joy=ReadJoypad(0);
-
-	//if player 1 is currently pressing start
-	if(joy != lastbuttons)
-	{
-		if((joy&BTN_START))
-		{
-			//switch our game state to game, which pops us out of the main menu and into the game (refer to main function)
-			game_state = GAME;
-		}
-		if((joy&BTN_SL))
-		{
-			//switch our game state to local scores screen
-			game_state = LOCAL_SCORES;
-		}
-	}
-	lastbuttons=joy;
-}
-
-/**
- * \brief Processes controller input during name entry menu, pretty messy but it works and looks nice
- */
-//void processNameMenu(void)
-//{
-//	//read in our player one joypad input
-//	joy=ReadJoypad(0);
-//
-//	//if player 1 is currently pressing start
-//	if(joy != lastbuttons)
-//	{
-//		if((joy&BTN_START))
-//		{
-//			Save(score);
-//			//switch our game state to game, which pops us out of the main menu and into the game (refer to main function)
-//			game_state = ONLINE_SCORES;
-//		}
-//		if((joy&BTN_SR))
-//		{
-//			if(connected)
-//			{
-//				//switch our game state to online scores again
-//				game_state = ONLINE_SCORES;
-//			}
-//		}
-//		if(joy&BTN_SL)
-//		{
-//			game_state = LOCAL_SCORES;
-//		}
-//		if(joy&BTN_RIGHT)
-//		{
-//			if(menu_y == 14)
-//			{
-//				if(menu_x < fakemod((drawX+24),VRAM_TILES_H))
-//				{
-//					eraseMenuCursor();
-//					menu_x+=2;
-//					drawMenuCursor(true);
-//				}
-//				else
-//				{
-//					eraseMenuCursor();
-//					menu_x = fakemod((drawX+6),VRAM_TILES_H);
-//					drawMenuCursor(true);
-//				}
-//			}
-//			else if(menu_y == 17)
-//			{
-//				if(menu_x < fakemod((drawX+24),VRAM_TILES_H))
-//				{
-//					eraseMenuCursor();
-//					menu_x+=2;
-//					drawMenuCursor(true);
-//				}
-//				else
-//				{
-//					eraseMenuCursor();
-//					menu_x = fakemod((drawX+6),VRAM_TILES_H);
-//					drawMenuCursor(true);
-//				}
-//			}
-//			else if(menu_y == 20)
-//			{
-//				if(menu_x < fakemod((drawX+22),VRAM_TILES_H))
-//				{
-//					eraseMenuCursor();
-//					menu_x+=2;
-//					drawMenuCursor(true);
-//				}
-//				else
-//				{
-//					eraseMenuCursor();
-//					menu_x = fakemod((drawX+6),VRAM_TILES_H);
-//					drawMenuCursor(true);
-//				}
-//			}
-//			else if(menu_y == 23)
-//			{
-//				if(menu_x < fakemod((drawX+18),VRAM_TILES_H))
-//				{
-//					eraseMenuCursor();
-//					menu_x+=2;
-//					drawMenuCursor(true);
-//				}
-//				else
-//				{
-//					eraseMenuCursor();
-//					menu_x = fakemod((drawX+6),VRAM_TILES_H);
-//					drawMenuCursor(true);
-//				}
-//			}
-//		}
-//		else if(joy&BTN_LEFT)
-//		{
-//			if(menu_x > fakemod((drawX+6),VRAM_TILES_H))
-//			{
-//				eraseMenuCursor();
-//				menu_x-=2;
-//				drawMenuCursor(true);
-//			}
-//			else
-//			{
-//				eraseMenuCursor();
-//				menu_x = fakemod((drawX+24),VRAM_TILES_H);
-//				drawMenuCursor(true);
-//			}
-//		}
-//		else if(joy&BTN_UP)
-//		{
-//			if(menu_y > 14)
-//			{
-//				eraseMenuCursor();
-//				menu_y -= 3;
-//				drawMenuCursor(true);
-//			}
-//			else
-//			{
-//				eraseMenuCursor();
-//				menu_y = 23;
-//				drawMenuCursor(true);
-//			}
-//		}
-//		else if(joy&BTN_DOWN)
-//		{
-//			if(menu_y < 23)
-//			{
-//				eraseMenuCursor();
-//				menu_y += 3;
-//				drawMenuCursor(true);
-//			}
-//			else
-//			{
-//				eraseMenuCursor();
-//				menu_y = 14;
-//				drawMenuCursor(true);
-//			}
-//		}
-//		else if(joy&BTN_Y) //erase last letter in name
-//		{
-//			bool foundlast = false;
-//			for(u8 i = 1; i < 8; i++)
-//			{
-//				if(!foundlast)
-//				{
-//					if(name[i]==' ')
-//					{
-//						name[i-1] = ' ';
-//						foundlast = true;
-//					}
-//					else if(i == 7)
-//					{
-//						name[i] = ' ';
-//						foundlast = true;
-//					}
-//				}
-//			}
-//			refreshName();
-//		}
-//		else if(joy&BTN_A) //erase last letter in name
-//		{
-//			bool foundlast = false;
-//			for(u8 i = 0; i < 8; i++)
-//			{
-//				if(!foundlast)
-//				{
-//					if(name[i]==' ')
-//					{
-//						name[i] = keyboard[(((menu_x-fakemod((drawX+6),VRAM_TILES_H)))>>1)+(10*((menu_y-14)/3))];
-//						foundlast = true;
-//					}
-//					else if(i == 7)
-//					{
-//						name[i] = keyboard[(((menu_x-fakemod((drawX+6),VRAM_TILES_H)))>>1)+(10*((menu_y-14)/3))];
-//						foundlast = true;
-//					}
-//				}
-//			}
-//			refreshName();
-//		}
-//	}
-//	lastbuttons=joy;
-//
-//	//correct position of cursor
-//	while(menu_y > 17 && menu_x > fakemod((drawX+23),VRAM_TILES_H))
-//	{
-//		eraseMenuCursor();
-//		menu_x-=2;
-//		drawMenuCursor(true);
-//	}
-//	while(menu_y > 20 && menu_x > fakemod((drawX+19),VRAM_TILES_H))
-//	{
-//		eraseMenuCursor();
-//		menu_x-=2;
-//		drawMenuCursor(true);
-//	}
-//}
 
 /**
  * \brief Used to setup the game's eeprom block on first run to prevent garbage data. Checks for a magic number to verify formatting.
@@ -1595,31 +1200,3 @@ void randomSky(void)
 		current_sky = NIGHT;
 	setBGTiles(current_sky);
 }
-
-
-/*void SaveName(void)
-{
-	struct EepromBlockStruct ebs; //create a temporary eeprom block struct for use
-	ebs.id = save_block; //assign it to this game's eeprom block number
-
-	for(u8 h = 0; h < 8; h++)
-	{
-		ebs.data[h+18] = name[h];
-	}
-
-	ebs.data[17] = 0x17; //THIS IS KEY, we check this value to make sure the block is formatted correctly whenever the game is initially booted up
-
-	EepromWriteBlock(&ebs); //actually write the data to eeprom
-}*/
-
-//void LoadName(void)
-//{
-//	//Initialize a struct and define the block id
-//	struct EepromBlockStruct ebs; //create a temporary eeprom block struct
-//	ebs.id = save_block; //set it to read this game's block
-//	if(EepromReadBlock(ebs.id, &ebs)==0) //read data from eeprom into the struct, if it works, proceed
-//	{
-//		for(u8 i = 0; i<=7; i++) //read scores from index0 to index1 and save them into our top score array for use
-//		    name[i]=(u8)ebs.data[i+18];
-//	}
-//}
