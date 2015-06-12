@@ -74,17 +74,34 @@ unsigned char scroll=0; ///< tracks number of pixels scrolled since the last tim
 bool scrollingOn=true, ///< tracks whether the screen has to be scrolled and also used to track if player is alive
 	 mute = false; ///< tracks whether or not all audio should be muted
 
+bool connected = false, ///< tracks connection state
+     awaiting_reply = false; ///< waiting on feedback from the 8266 or a message from the server
+uint_least16_t hb_counter = 0, ///< counter, so the uzenet state machine knows how often to send a heartbeat to the server if in stby mode for a prolonged time (currently every 2 min)
+	       attempt_timer = 0, ///< track time waited on response from 8266
+		   timeout_value = 1200; ///< after 1200 frames (20 seconds), stop waiting on a reply
+uint_least8_t  attempts = 0, ///< times uzenet state machine has attempted current action
+		       compare_len = 0, ///< length of string expected in the uart buffer
+		       onlinescores[10] = {0,0,0,0,0,0,0,0,0,0}; ///< array of online scores
+char * compare, ///< string to compare buffer to
+       rxbuffer[64];
+
+/**
+ * \enum net_state
+ * \brief State of the background process used for uzenet high scores
+ */
+typedef enum {INIT, CONNECT, SEND_HI_SCORES, GET_HI_SCORES, STBY, OFF} net_state;
+net_state uzenet_state = STBY;
 
 uint_least8_t bg[32]; ///< array used to track state of a column of tiles, either 0 for foreground or 1 for background. Needed for the parallax effect. Could be a 32 bit field but that's messier and I'm lazy.
 const char * numbers[10] = {num0, num1, num2, num3, num4, num5, num6, num7, num8, num9}; ///< convenience array for displaying the floating score digit sprites
 const char * player_sprites[9] = {ghost0, ghost1, ghost2, ghost3, ghost4, ghost5, ghost6, ghost7, ghost8}; ///< convenience array for displaying the ghost sprites
 const char * current_sprite; ///< used as an index in player_sprites array to display correct ghost sprite
-//const char keyboard[40] = {'1','2','3','4','5','6','7','8','9','0',
-//                              'Q','W','E','R','T','Y','U','I','O','P',
-//                              'A','S','D','F','G','H','J','K','L',' ',
-//                              'Z','X','C','V','B','N','M',' ',' ',' '};
+const char keyboard[40] = {'1','2','3','4','5','6','7','8','9','0',
+                              'Q','W','E','R','T','Y','U','I','O','P',
+                              'A','S','D','F','G','H','J','K','L',' ',
+                              'Z','X','C','V','B','N','M',' ',' ',' '};
 
-//char name[8] = {'D','E','F','A','U','L','T',' '}; ///< the player name we will send alongside high scores, saved in  eeprom data blocks 18 to 27
+char name[8] = {'D','E','F','A','U','L','T',' '}; ///< the player name we will send alongside high scores, saved in  eeprom data blocks 18 to 27
 
 /**
  * \enum sky_state
@@ -97,8 +114,7 @@ sky_state current_sky = NIGHT; ///< holds the actual current state of the bg in 
  * \enum state
  * \brief Badly titled, but this is for the actual state of the game as a whole. Used for determining which screen to draw, what to do with player input, and what game logic to use.
  */
-//typedef enum {INTRO, MAIN_MENU, GAME, LOCAL_SCORES, ONLINE_SCORES, ENTER_NAME} state;
-typedef enum {INTRO, MAIN_MENU, GAME, LOCAL_SCORES} state;
+typedef enum {INTRO, MAIN_MENU, GAME, LOCAL_SCORES, ONLINE_SCORES, ENTER_NAME} state;
 state game_state = INTRO; ///< Tracks current state of the game.
 
 //these numbers are either tile indexes or they're offsets from a tile index
@@ -141,7 +157,7 @@ state game_state = INTRO; ///< Tracks current state of the game.
 void processMainMenu(void);
 void processLocalHighScoreMenu(void);
 void processOnlineHighScoreMenu(void);
-//void processNameMenu(void);
+void processNameMenu(void);
 void drawIntro(void);
 void processIntro(void);
 void initIntro(void);
@@ -155,15 +171,15 @@ static void gameSetup(void);
 void drawFrame(void);
 void drawMainMenu(void);
 void refreshMainMenuSound(void);
-//void refreshName(void);
+void refreshName(void);
 void drawLocalHighScoreMenu(void);
-//void drawOnlineHighScoreMenu(void);
-//void drawNameMenu(void);
+void drawOnlineHighScoreMenu(void);
+void drawNameMenu(void);
 void drawMenuCursor(bool up);
 void eraseMenuCursor(void);
 void Save(u8 hiscore);
 void LoadScore(u8 index0, u8 index1);
-//void LoadName(void);
+void LoadName(void);
 void plusScore(void);
 u8 checkEeprom(void);
 void wipeEeprom(void);
@@ -173,6 +189,10 @@ void seedprng(uint_fast16_t seed);
 uint_fast8_t fakemod(uint_fast8_t num1, uint_fast8_t num2);
 void setBGTiles(sky_state bg_state);
 void randomSky(void);
+
+void processUzenet(void);
+void waitOnResponse(void);
+void wifi_SendStringP(const char* str);
 
 /**
  * \brief The main game loop. This just cycles endlessly, it uses the game's 'state' to determine which screen to show and what to do.
@@ -205,7 +225,7 @@ int main(){
 			SetTileTable(title_tiles);
 			SetFontTilesIndex(TITLE_TILES_SIZE);
 			drawMainMenu();
-			//uzenet_state = INIT;
+			uzenet_state = INIT;
 			FadeIn(0,false);
 		}
 		//draw menu and handle input
@@ -214,7 +234,7 @@ int main(){
 			WaitVsync(1);
 			drawMenuCursor(false);
 			processMainMenu();
-			//processUzenet();
+			processUzenet();
 		}
 		if(game_state== GAME)
 		{
@@ -255,9 +275,9 @@ int main(){
 		{
 			WaitVsync(1);
 			processLocalHighScoreMenu();
-			//processUzenet();
+			processUzenet();
 		}
-		/*if(game_state == ONLINE_SCORES)
+		if(game_state == ONLINE_SCORES)
 		{
 			FadeOut(0,true);
 			SetTileTable(title_tiles);
@@ -265,7 +285,7 @@ int main(){
 			drawOnlineHighScoreMenu(); //draw up the high score screen
 			FadeIn(0,false);
 			deathclock=120; //reset death timer to 2 seconds
-			//uzenet_state = SEND_HI_SCORES;
+			uzenet_state = SEND_HI_SCORES;
 			///if(score > topscores[9])
 			///{
 			///    LoadScore(0, 9); //load top 10 saved high scores
@@ -278,7 +298,7 @@ int main(){
 		{
 			WaitVsync(1);
 			processOnlineHighScoreMenu();
-			//processUzenet();
+			processUzenet();
 		}
 		if(game_state == ENTER_NAME)
 		{
@@ -292,9 +312,8 @@ int main(){
 		{
 			WaitVsync(1);
 			processNameMenu();
-			//processUzenet();
+			processUzenet();
 		}
-		*/
     }
 }
 
@@ -325,7 +344,7 @@ static void initialSetup()
 	//load our top 10 saved scores from eeprom
 	LoadScore(0, 9);
 
-	//LoadName();
+	LoadName();
 }
 
 /**
@@ -480,15 +499,14 @@ void processControls(void){
 		{
 			if(deathclock<105)
 			{
-//				if(connected)
-//				{
-//					game_state = ENTER_NAME; //exit main game state, enter high score screen state (refer to main function)
-//				}
-//				else
-//				{
-//					game_state = LOCAL_SCORES; //exit main game state, enter high score screen state (refer to main function)
-//				}
-				game_state = LOCAL_SCORES; //exit main game state, enter high score screen state (refer to main function)
+				if(connected)
+				{
+					game_state = ENTER_NAME; //exit main game state, enter high score screen state (refer to main function)
+				}
+				else
+				{
+					game_state = LOCAL_SCORES; //exit main game state, enter high score screen state (refer to main function)
+				}
 			}
 		}
 
@@ -737,15 +755,14 @@ void processPlayerMotion(void){
 		deathclock--;
 		if(deathclock==0) //it's been 120 frames (2 seconds) since player died
 		{
-//			if(connected)
-//			{
-//				game_state = ENTER_NAME;
-//			}
-//			else
-//			{
-//				game_state = LOCAL_SCORES; //switch out of main game state to high score screen state (see main function)
-//			}
-			game_state = LOCAL_SCORES; //switch out of main game state to high score screen state (see main function)
+			if(connected)
+			{
+				game_state = ENTER_NAME;
+			}
+			else
+			{
+				game_state = LOCAL_SCORES; //switch out of main game state to high score screen state (see main function)
+			}
 		}
 	}
 
@@ -859,10 +876,10 @@ void Save(u8 hiscore)
 		ebs.data[h] = topscores[h];
 	}
 
-//	for(u8 h = 0; h < 8; h++)
-//	{
-//		ebs.data[h+18] = name[h];
-//	}
+	for(u8 h = 0; h < 8; h++)
+	{
+		ebs.data[h+18] = name[h];
+	}
 
 	ebs.data[17] = 0x17; //THIS IS KEY, we check this value to make sure the block is formatted correctly whenever the game is initially booted up
 
@@ -1000,11 +1017,11 @@ void drawLocalHighScoreMenu(void)
 		Print(fakemod((drawX+12),VRAM_TILES_H),6+(i<<1),PSTR("."));
 	}
 
-//	if(connected)
-//	{
-//	    DrawMap(fakemod((drawX+24),VRAM_TILES_H),2,mn_map_rightbtn);
-//	    DrawMap(fakemod((drawX+24),VRAM_TILES_H),3,mn_map_online);
-//	}
+	if(connected)
+	{
+	    DrawMap(fakemod((drawX+24),VRAM_TILES_H),2,mn_map_rightbtn);
+	    DrawMap(fakemod((drawX+24),VRAM_TILES_H),3,mn_map_online);
+	}
 }
 
 /**
@@ -1012,72 +1029,72 @@ void drawLocalHighScoreMenu(void)
  *
  * Uses the values saved in the onlinescores array, this allows displaying scores separately from sending/receiving.
  */
-//void drawOnlineHighScoreMenu(void)
-//{
-//	//set cursor for use with this menu (may one day be needed for scrolling)
-//	menu_x = fakemod((drawX+9),VRAM_TILES_H);
-//	menu_y = 15;
-//	ClearVram(); //blank screen
-//	drawFrame(); //draw generic gui frame
-//	Print(fakemod((drawX+7),VRAM_TILES_H),3,PSTR("ONLINE TOP SCORES")); //write menu title at top of screen
-//
-//	for(u8 i = 0; i < 10; i++) //print scores 1 - 10 from onlinescores array
-//	{
-//		PrintInt(fakemod((drawX+13),VRAM_TILES_H),6+(i<<1),onlinescores[i], false);
-//		PrintInt(fakemod((drawX+7),VRAM_TILES_H),6+(i<<1),i+1, false);
-//		Print(fakemod((drawX+8),VRAM_TILES_H),6+(i<<1),PSTR("."));
-//
-//		for(uint_least8_t k=0; k<8; k++)
-//		{
-//		PrintChar(fakemod((drawX+16+k),VRAM_TILES_H),6+(i<<1),name[k]);
-//		}
-//	}
-//
-//	DrawMap(fakemod((drawX+3),VRAM_TILES_H),2,mn_map_leftbtn);
-//	DrawMap(fakemod((drawX+3),VRAM_TILES_H),3,mn_map_local);
-//}
+void drawOnlineHighScoreMenu(void)
+{
+	//set cursor for use with this menu (may one day be needed for scrolling)
+	menu_x = fakemod((drawX+9),VRAM_TILES_H);
+	menu_y = 15;
+	ClearVram(); //blank screen
+	drawFrame(); //draw generic gui frame
+	Print(fakemod((drawX+7),VRAM_TILES_H),3,PSTR("ONLINE TOP SCORES")); //write menu title at top of screen
+
+	for(u8 i = 0; i < 10; i++) //print scores 1 - 10 from onlinescores array
+	{
+		PrintInt(fakemod((drawX+13),VRAM_TILES_H),6+(i<<1),onlinescores[i], false);
+		PrintInt(fakemod((drawX+7),VRAM_TILES_H),6+(i<<1),i+1, false);
+		Print(fakemod((drawX+8),VRAM_TILES_H),6+(i<<1),PSTR("."));
+
+		for(uint_least8_t k=0; k<8; k++)
+		{
+		PrintChar(fakemod((drawX+16+k),VRAM_TILES_H),6+(i<<1),name[k]);
+		}
+	}
+
+	DrawMap(fakemod((drawX+3),VRAM_TILES_H),2,mn_map_leftbtn);
+	DrawMap(fakemod((drawX+3),VRAM_TILES_H),3,mn_map_local);
+}
 
 /**
  * \brief Draws menu for name entry
  *
  * Let's player enter their preferred name for high scores and save it
  */
-//void drawNameMenu(void)
-//{
-//	//set cursor for use with this menu (may one day be needed for scrolling)
-//	ClearVram(); //blank screen
-//	drawFrame(); //draw generic gui frame
-//	menu_x = fakemod((drawX+6),VRAM_TILES_H);
-//	menu_y = 14;
-//	Print(fakemod((drawX+9),VRAM_TILES_H),3,PSTR("PLAYER NAME:")); //write menu title at top of screen
-//
-//	refreshName();
-//
-//	DrawMap(fakemod((drawX+10),VRAM_TILES_H),9,mn_map_ybtn);
-//	DrawMap(fakemod((drawX+10),VRAM_TILES_H),10,mn_map_back);
-//	DrawMap(fakemod((drawX+14),VRAM_TILES_H),9,mn_map_abtn);
-//	DrawMap(fakemod((drawX+14),VRAM_TILES_H),10,mn_map_enter);
-//	DrawMap(fakemod((drawX+18),VRAM_TILES_H),9,mn_map_start);
-//	DrawMap(fakemod((drawX+18),VRAM_TILES_H),10,mn_map_save);
-//
-//	for(u8 y = 0; y < 4; y++)
-//	{
-//		for(u8 x = 0; x < 10; x++)
-//		{
-//			PrintChar(fakemod((drawX+6+(x<<1)),VRAM_TILES_H),13+(y<<1)+y,keyboard[x+((y<<3) + (y<<1))]); //draw the char in keyboard [x][y] but spaced out 2 wide and 3 high
-//		}
-//	}
-//
-//	drawMenuCursor(true);
-//	DrawMap(fakemod((drawX+3),VRAM_TILES_H),2,mn_map_leftbtn);
-//	DrawMap(fakemod((drawX+3),VRAM_TILES_H),3,mn_map_local);
-//	if(connected)
-//	{
-//	    DrawMap(fakemod((drawX+24),VRAM_TILES_H),2,mn_map_rightbtn);
-//	    DrawMap(fakemod((drawX+24),VRAM_TILES_H),3,mn_map_online);
-//	}
-//
-//}
+void drawNameMenu(void)
+{
+	//set cursor for use with this menu (may one day be needed for scrolling)
+	ClearVram(); //blank screen
+	drawFrame(); //draw generic gui frame
+	menu_x = fakemod((drawX+6),VRAM_TILES_H);
+	menu_y = 14;
+	Print(fakemod((drawX+9),VRAM_TILES_H),3,PSTR("PLAYER NAME:")); //write menu title at top of screen
+
+	refreshName();
+
+	DrawMap(fakemod((drawX+10),VRAM_TILES_H),9,mn_map_ybtn);
+	DrawMap(fakemod((drawX+10),VRAM_TILES_H),10,mn_map_back);
+	DrawMap(fakemod((drawX+14),VRAM_TILES_H),9,mn_map_abtn);
+	DrawMap(fakemod((drawX+14),VRAM_TILES_H),10,mn_map_enter);
+	DrawMap(fakemod((drawX+18),VRAM_TILES_H),9,mn_map_start);
+	DrawMap(fakemod((drawX+18),VRAM_TILES_H),10,mn_map_save);
+
+	for(u8 y = 0; y < 4; y++)
+	{
+		for(u8 x = 0; x < 10; x++)
+		{
+			PrintChar(fakemod((drawX+6+(x<<1)),VRAM_TILES_H),13+(y<<1)+y,keyboard[x+((y<<3) + (y<<1))]); //draw the char in keyboard [x][y] but spaced out 2 wide and 3 high
+		}
+	}
+
+	drawMenuCursor(true);
+	DrawMap(fakemod((drawX+3),VRAM_TILES_H),2,mn_map_leftbtn);
+	DrawMap(fakemod((drawX+3),VRAM_TILES_H),3,mn_map_local);
+	if(connected)
+	{
+	    DrawMap(fakemod((drawX+24),VRAM_TILES_H),2,mn_map_rightbtn);
+	    DrawMap(fakemod((drawX+24),VRAM_TILES_H),3,mn_map_online);
+	}
+
+}
 
 /**
  * \brief Helper function to draw cursor for menus.
@@ -1114,13 +1131,13 @@ void refreshMainMenuSound()
 /**
  * \brief Helper function to update sound "on/off" on main menu.
  */
-//void refreshName()
-//{
-//	for(u8 i = 0; i < 8; i++)
-//	{
-//		PrintChar(fakemod((drawX+11+i),VRAM_TILES_H),6,name[i]);
-//	}
-//}
+void refreshName()
+{
+	for(u8 i = 0; i < 8; i++)
+	{
+		PrintChar(fakemod((drawX+11+i),VRAM_TILES_H),6,name[i]);
+	}
+}
 
 /**
  * \brief Processes controller input during local high score menu.
@@ -1138,14 +1155,14 @@ void processLocalHighScoreMenu(void)
 			//switch our game state to game, which pops us out of the main menu and into the game (refer to main function)
 			game_state = GAME;
 		}
-//		if((joy&BTN_SR))
-//		{
-//			if(connected)
-//			{
-//			//switch our game state to online scores screen
-//			game_state = ONLINE_SCORES;
-//			}
-//		}
+		if((joy&BTN_SR))
+		{
+			if(connected)
+			{
+			//switch our game state to online scores screen
+			game_state = ONLINE_SCORES;
+			}
+		}
 	}
 	lastbuttons=joy;
 }
@@ -1178,199 +1195,199 @@ void processOnlineHighScoreMenu(void)
 /**
  * \brief Processes controller input during name entry menu, pretty messy but it works and looks nice
  */
-//void processNameMenu(void)
-//{
-//	//read in our player one joypad input
-//	joy=ReadJoypad(0);
-//
-//	//if player 1 is currently pressing start
-//	if(joy != lastbuttons)
-//	{
-//		if((joy&BTN_START))
-//		{
-//			Save(score);
-//			//switch our game state to game, which pops us out of the main menu and into the game (refer to main function)
-//			game_state = ONLINE_SCORES;
-//		}
-//		if((joy&BTN_SR))
-//		{
-//			if(connected)
-//			{
-//				//switch our game state to online scores again
-//				game_state = ONLINE_SCORES;
-//			}
-//		}
-//		if(joy&BTN_SL)
-//		{
-//			game_state = LOCAL_SCORES;
-//		}
-//		if(joy&BTN_RIGHT)
-//		{
-//			if(menu_y == 14)
-//			{
-//				if(menu_x < fakemod((drawX+24),VRAM_TILES_H))
-//				{
-//					eraseMenuCursor();
-//					menu_x+=2;
-//					drawMenuCursor(true);
-//				}
-//				else
-//				{
-//					eraseMenuCursor();
-//					menu_x = fakemod((drawX+6),VRAM_TILES_H);
-//					drawMenuCursor(true);
-//				}
-//			}
-//			else if(menu_y == 17)
-//			{
-//				if(menu_x < fakemod((drawX+24),VRAM_TILES_H))
-//				{
-//					eraseMenuCursor();
-//					menu_x+=2;
-//					drawMenuCursor(true);
-//				}
-//				else
-//				{
-//					eraseMenuCursor();
-//					menu_x = fakemod((drawX+6),VRAM_TILES_H);
-//					drawMenuCursor(true);
-//				}
-//			}
-//			else if(menu_y == 20)
-//			{
-//				if(menu_x < fakemod((drawX+22),VRAM_TILES_H))
-//				{
-//					eraseMenuCursor();
-//					menu_x+=2;
-//					drawMenuCursor(true);
-//				}
-//				else
-//				{
-//					eraseMenuCursor();
-//					menu_x = fakemod((drawX+6),VRAM_TILES_H);
-//					drawMenuCursor(true);
-//				}
-//			}
-//			else if(menu_y == 23)
-//			{
-//				if(menu_x < fakemod((drawX+18),VRAM_TILES_H))
-//				{
-//					eraseMenuCursor();
-//					menu_x+=2;
-//					drawMenuCursor(true);
-//				}
-//				else
-//				{
-//					eraseMenuCursor();
-//					menu_x = fakemod((drawX+6),VRAM_TILES_H);
-//					drawMenuCursor(true);
-//				}
-//			}
-//		}
-//		else if(joy&BTN_LEFT)
-//		{
-//			if(menu_x > fakemod((drawX+6),VRAM_TILES_H))
-//			{
-//				eraseMenuCursor();
-//				menu_x-=2;
-//				drawMenuCursor(true);
-//			}
-//			else
-//			{
-//				eraseMenuCursor();
-//				menu_x = fakemod((drawX+24),VRAM_TILES_H);
-//				drawMenuCursor(true);
-//			}
-//		}
-//		else if(joy&BTN_UP)
-//		{
-//			if(menu_y > 14)
-//			{
-//				eraseMenuCursor();
-//				menu_y -= 3;
-//				drawMenuCursor(true);
-//			}
-//			else
-//			{
-//				eraseMenuCursor();
-//				menu_y = 23;
-//				drawMenuCursor(true);
-//			}
-//		}
-//		else if(joy&BTN_DOWN)
-//		{
-//			if(menu_y < 23)
-//			{
-//				eraseMenuCursor();
-//				menu_y += 3;
-//				drawMenuCursor(true);
-//			}
-//			else
-//			{
-//				eraseMenuCursor();
-//				menu_y = 14;
-//				drawMenuCursor(true);
-//			}
-//		}
-//		else if(joy&BTN_Y) //erase last letter in name
-//		{
-//			bool foundlast = false;
-//			for(u8 i = 1; i < 8; i++)
-//			{
-//				if(!foundlast)
-//				{
-//					if(name[i]==' ')
-//					{
-//						name[i-1] = ' ';
-//						foundlast = true;
-//					}
-//					else if(i == 7)
-//					{
-//						name[i] = ' ';
-//						foundlast = true;
-//					}
-//				}
-//			}
-//			refreshName();
-//		}
-//		else if(joy&BTN_A) //erase last letter in name
-//		{
-//			bool foundlast = false;
-//			for(u8 i = 0; i < 8; i++)
-//			{
-//				if(!foundlast)
-//				{
-//					if(name[i]==' ')
-//					{
-//						name[i] = keyboard[(((menu_x-fakemod((drawX+6),VRAM_TILES_H)))>>1)+(10*((menu_y-14)/3))];
-//						foundlast = true;
-//					}
-//					else if(i == 7)
-//					{
-//						name[i] = keyboard[(((menu_x-fakemod((drawX+6),VRAM_TILES_H)))>>1)+(10*((menu_y-14)/3))];
-//						foundlast = true;
-//					}
-//				}
-//			}
-//			refreshName();
-//		}
-//	}
-//	lastbuttons=joy;
-//
-//	//correct position of cursor
-//	while(menu_y > 17 && menu_x > fakemod((drawX+23),VRAM_TILES_H))
-//	{
-//		eraseMenuCursor();
-//		menu_x-=2;
-//		drawMenuCursor(true);
-//	}
-//	while(menu_y > 20 && menu_x > fakemod((drawX+19),VRAM_TILES_H))
-//	{
-//		eraseMenuCursor();
-//		menu_x-=2;
-//		drawMenuCursor(true);
-//	}
-//}
+void processNameMenu(void)
+{
+	//read in our player one joypad input
+	joy=ReadJoypad(0);
+
+	//if player 1 is currently pressing start
+	if(joy != lastbuttons)
+	{
+		if((joy&BTN_START))
+		{
+			Save(score);
+			//switch our game state to game, which pops us out of the main menu and into the game (refer to main function)
+			game_state = ONLINE_SCORES;
+		}
+		if((joy&BTN_SR))
+		{
+			if(connected)
+			{
+				//switch our game state to online scores again
+				game_state = ONLINE_SCORES;
+			}
+		}
+		if(joy&BTN_SL)
+		{
+			game_state = LOCAL_SCORES;
+		}
+		if(joy&BTN_RIGHT)
+		{
+			if(menu_y == 14)
+			{
+				if(menu_x < fakemod((drawX+24),VRAM_TILES_H))
+				{
+					eraseMenuCursor();
+					menu_x+=2;
+					drawMenuCursor(true);
+				}
+				else
+				{
+					eraseMenuCursor();
+					menu_x = fakemod((drawX+6),VRAM_TILES_H);
+					drawMenuCursor(true);
+				}
+			}
+			else if(menu_y == 17)
+			{
+				if(menu_x < fakemod((drawX+24),VRAM_TILES_H))
+				{
+					eraseMenuCursor();
+					menu_x+=2;
+					drawMenuCursor(true);
+				}
+				else
+				{
+					eraseMenuCursor();
+					menu_x = fakemod((drawX+6),VRAM_TILES_H);
+					drawMenuCursor(true);
+				}
+			}
+			else if(menu_y == 20)
+			{
+				if(menu_x < fakemod((drawX+22),VRAM_TILES_H))
+				{
+					eraseMenuCursor();
+					menu_x+=2;
+					drawMenuCursor(true);
+				}
+				else
+				{
+					eraseMenuCursor();
+					menu_x = fakemod((drawX+6),VRAM_TILES_H);
+					drawMenuCursor(true);
+				}
+			}
+			else if(menu_y == 23)
+			{
+				if(menu_x < fakemod((drawX+18),VRAM_TILES_H))
+				{
+					eraseMenuCursor();
+					menu_x+=2;
+					drawMenuCursor(true);
+				}
+				else
+				{
+					eraseMenuCursor();
+					menu_x = fakemod((drawX+6),VRAM_TILES_H);
+					drawMenuCursor(true);
+				}
+			}
+		}
+		else if(joy&BTN_LEFT)
+		{
+			if(menu_x > fakemod((drawX+6),VRAM_TILES_H))
+			{
+				eraseMenuCursor();
+				menu_x-=2;
+				drawMenuCursor(true);
+			}
+			else
+			{
+				eraseMenuCursor();
+				menu_x = fakemod((drawX+24),VRAM_TILES_H);
+				drawMenuCursor(true);
+			}
+		}
+		else if(joy&BTN_UP)
+		{
+			if(menu_y > 14)
+			{
+				eraseMenuCursor();
+				menu_y -= 3;
+				drawMenuCursor(true);
+			}
+			else
+			{
+				eraseMenuCursor();
+				menu_y = 23;
+				drawMenuCursor(true);
+			}
+		}
+		else if(joy&BTN_DOWN)
+		{
+			if(menu_y < 23)
+			{
+				eraseMenuCursor();
+				menu_y += 3;
+				drawMenuCursor(true);
+			}
+			else
+			{
+				eraseMenuCursor();
+				menu_y = 14;
+				drawMenuCursor(true);
+			}
+		}
+		else if(joy&BTN_Y) //erase last letter in name
+		{
+			bool foundlast = false;
+			for(u8 i = 1; i < 8; i++)
+			{
+				if(!foundlast)
+				{
+					if(name[i]==' ')
+					{
+						name[i-1] = ' ';
+						foundlast = true;
+					}
+					else if(i == 7)
+					{
+						name[i] = ' ';
+						foundlast = true;
+					}
+				}
+			}
+			refreshName();
+		}
+		else if(joy&BTN_A) //erase last letter in name
+		{
+			bool foundlast = false;
+			for(u8 i = 0; i < 8; i++)
+			{
+				if(!foundlast)
+				{
+					if(name[i]==' ')
+					{
+						name[i] = keyboard[(((menu_x-fakemod((drawX+6),VRAM_TILES_H)))>>1)+(10*((menu_y-14)/3))];
+						foundlast = true;
+					}
+					else if(i == 7)
+					{
+						name[i] = keyboard[(((menu_x-fakemod((drawX+6),VRAM_TILES_H)))>>1)+(10*((menu_y-14)/3))];
+						foundlast = true;
+					}
+				}
+			}
+			refreshName();
+		}
+	}
+	lastbuttons=joy;
+
+	//correct position of cursor
+	while(menu_y > 17 && menu_x > fakemod((drawX+23),VRAM_TILES_H))
+	{
+		eraseMenuCursor();
+		menu_x-=2;
+		drawMenuCursor(true);
+	}
+	while(menu_y > 20 && menu_x > fakemod((drawX+19),VRAM_TILES_H))
+	{
+		eraseMenuCursor();
+		menu_x-=2;
+		drawMenuCursor(true);
+	}
+}
 
 /**
  * \brief Used to setup the game's eeprom block on first run to prevent garbage data. Checks for a magic number to verify formatting.
@@ -1612,14 +1629,209 @@ void randomSky(void)
 	EepromWriteBlock(&ebs); //actually write the data to eeprom
 }*/
 
-//void LoadName(void)
-//{
-//	//Initialize a struct and define the block id
-//	struct EepromBlockStruct ebs; //create a temporary eeprom block struct
-//	ebs.id = save_block; //set it to read this game's block
-//	if(EepromReadBlock(ebs.id, &ebs)==0) //read data from eeprom into the struct, if it works, proceed
-//	{
-//		for(u8 i = 0; i<=7; i++) //read scores from index0 to index1 and save them into our top score array for use
-//		    name[i]=(u8)ebs.data[i+18];
-//	}
-//}
+void LoadName(void)
+{
+	//Initialize a struct and define the block id
+	struct EepromBlockStruct ebs; //create a temporary eeprom block struct
+	ebs.id = save_block; //set it to read this game's block
+	if(EepromReadBlock(ebs.id, &ebs)==0) //read data from eeprom into the struct, if it works, proceed
+	{
+		for(u8 i = 0; i<=7; i++) //read scores from index0 to index1 and save them into our top score array for use
+		    name[i]=(u8)ebs.data[i+18];
+	}
+}
+
+void processUzenet(void)
+{
+	if(uzenet_state == INIT)
+	{
+		if(!awaiting_reply) //not waiting on a response from 8266, so we need to try talking to it
+		{
+			if(attempts == 0)
+			{
+				attempts++;
+				//initialize UART0
+					UBRR0H=0;
+					/*
+					http://wormfood.net/avrbaudcalc.php
+					This is for single speed mode. Double the
+					values for UART double speed mode.
+					Baud  UBRR0L	Error%
+					9600	185		0.2
+					14400	123		0.2
+					19200	92		0.2
+					28800	61		0.2
+					38400	46		0.8
+					57600	30		0.2			57600 is the Uzebox "standard" at the moment
+					76800	22		1.3
+					115200	15		3.0
+					*/
+
+					//UBRR0L=185;	//9600 bauds	960 bytes/s		16 bytes/field
+					//UBRR0L=92;	//19200 bauds	1920 bytes/s	32 bytes/field
+					//UBRR0L=46;	//38400 bauds	3840 bytes/s	64 bytes/field
+					UBRR0L=30;		//57600 bauds	5760 bytes/s	96 bytes/field
+
+					UCSR0A=(0<<U2X0); // double speed mode
+					UCSR0C=(1<<UCSZ01)+(1<<UCSZ00)+(0<<USBS0); //8-bit frame, no parity, 1 stop bit
+					UCSR0B=(1<<RXEN0)+(1<<TXEN0); //Enable UART TX & RX
+					//reset module
+					DDRD|=(1<<PD3);
+					PORTD&=~(1<<PD3);
+					WaitVsync(1);
+					PORTD|=(1<<PD3);
+					awaiting_reply = true;
+					compare = PSTR("ready\r\n"); //set to expected response
+					compare_len=7; //set to length of the expected reply
+			}
+			else if(attempts < 4) //don't get stuck trying to initialize forever
+			{
+				attempts++;
+				//turn echo off. if this works, then the module is good to go and we should try to connect
+				wifi_SendStringP(PSTR("AT\r\n"));
+				awaiting_reply = true;
+				compare = PSTR("OK\r\n"); //set to expected response
+				compare_len=4; //set to length of the expected reply
+			}
+			else
+			{
+				//tried too many times, quit
+				uzenet_state = OFF;
+			}
+		}
+		else //we ARE waiting on the machine to reply
+		{
+			waitOnResponse();
+		}
+	}
+	else if(uzenet_state == CONNECT)
+	{
+		if(!awaiting_reply)
+		{
+			if (attempts == 0)
+			{
+				attempts++;
+				wifi_SendStringP(PSTR("AT+CIPMUX=1\r\n"));
+				WaitVsync(10);
+				while(UartUnreadCount() >0)
+					UartReadChar();
+				wifi_SendStringP(PSTR("AT+CIPSTART=0,\"TCP\",\"uzebox.net\",50697\r\n")); //PSTR("AT+CIPMUX=1\r\n")
+				awaiting_reply = true;
+				compare = PSTR("OK\r\n"); //set to expected response
+				compare_len=4; //set to length of the expected reply
+			}
+			else
+			{
+				uzenet_state = STBY;
+			}
+		}
+		else //we ARE waiting on the machine to reply
+		{
+			waitOnResponse();
+		}
+	}
+	else if(uzenet_state == SEND_HI_SCORES)
+	{
+
+	}
+	else if(uzenet_state == GET_HI_SCORES)
+	{
+
+	}
+	else if(uzenet_state == STBY)
+	{
+		hb_counter++;
+		if(hb_counter > 7199)
+		{
+			hb_counter = 0;
+			//send heartbeat message
+		}
+	}
+}
+
+void wifi_SendStringP(const char* str){
+
+	char c;
+	while(str!=NULL){
+		c=pgm_read_byte(str);
+		if(c==0)break;
+		while(UartSendChar(c)==-1);
+		str++;
+	};
+}
+
+void waitOnResponse(void)
+{
+	attempt_timer++;
+	if(attempt_timer > timeout_value)
+	{
+		attempt_timer = 0;
+		awaiting_reply = false;
+	}
+	else if(attempt_timer > 70) //wait at least one whole frame between checking for responses
+	{
+		if(uzenet_state == INIT)
+		{
+			if(UartUnreadCount() >= compare_len)
+			{
+				s16 r;
+				u8 c, goodchars=0;
+				char* buf=rxbuffer;
+				const char* p=compare;
+				for (u8 g = 0; g < compare_len; g++)
+				{
+					r=UartReadChar();
+					c=r&(0xff);
+					if(buf!=NULL){
+						*buf=c;
+						buf++;
+					}
+					if(c==pgm_read_byte(p)){ //compare the char to our comparison string
+						goodchars++;
+					}
+					p++;
+				}
+				if(goodchars == compare_len)
+				{
+					attempt_timer = 0;
+					attempts = 0;
+					awaiting_reply = false;
+					uzenet_state = CONNECT;
+					connected = true;
+				}
+			}
+		}
+		else if(uzenet_state == CONNECT)
+		{
+			if(UartUnreadCount() >= compare_len)
+			{
+				s16 r;
+				u8 c, goodchars=0;
+				char* buf=rxbuffer;
+				const char* p=compare;
+				for (u8 g = 0; g < compare_len; g++)
+				{
+					r=UartReadChar();
+					c=r&(0xff);
+					if(buf!=NULL){
+						*buf=c;
+						buf++;
+					}
+					if(c==pgm_read_byte(p)){ //compare the char to our comparison string
+						goodchars++;
+					}
+					p++;
+				}
+				if(goodchars == compare_len)
+				{
+					attempt_timer = 0;
+					awaiting_reply = false;
+					attempts=0;
+					uzenet_state = STBY;
+				}
+			}
+		}
+	}
+}
+
+
