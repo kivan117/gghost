@@ -63,21 +63,21 @@ uint_least8_t     city_offset = 0, ///< offset value used to start at the right 
 		          score_hundreds = 0, ///< hundreds digit of current player score, used for the floating score sprites
 		          score_x = 108, ///< far left x position (in pixels) of the score sprites
 		          topscores[10], ///< array of high scores, used to allow scores to be read and saved independent of game/menu flow
-		          menu_x = 0, ///< x position (in tiles) of menu cursor
+				  menu_x = 0, ///< x position (in tiles) of menu cursor
 		          menu_y = 0, ///< y position (in tiles) of menu cursor
 		          deathclock = 120, ///< alarm to move to high score screen 2 seconds after player loses
 		          wave_tick = 15; ///< used as an index to traverse sine wave lookup table, provides smooth motion during custom intro
 int_least8_t      yspeed = 0; ///< player's vertical speed (in pixels/frame)
-
 
 unsigned char scroll=0; ///< tracks number of pixels scrolled since the last time a new column of tiles was drawn
 
 bool scrollingOn=true, ///< tracks whether the screen has to be scrolled and also used to track if player is alive
 	 mute = false; ///< tracks whether or not all audio should be muted
 
-uint_least8_t * bg[32]; ///< array used to track state of a column of tiles, either 0 for foreground or 1 for background. Needed for the parallax effect. Could be a 32 bit field but that's messier and I'm lazy.
-const char * numbers[10]; ///< convenience array for displaying the floating score digit sprites
-const char * player_sprites[9]; ///< convenience array for displaying the ghost sprites
+
+uint_least8_t bg[32]; ///< array used to track state of a column of tiles, either 0 for foreground or 1 for background. Needed for the parallax effect. Could be a 32 bit field but that's messier and I'm lazy.
+const char * numbers[10] = {num0, num1, num2, num3, num4, num5, num6, num7, num8, num9}; ///< convenience array for displaying the floating score digit sprites
+const char * player_sprites[9] = {ghost0, ghost1, ghost2, ghost3, ghost4, ghost5, ghost6, ghost7, ghost8}; ///< convenience array for displaying the ghost sprites
 const char * current_sprite; ///< used as an index in player_sprites array to display correct ghost sprite
 
 /**
@@ -91,9 +91,8 @@ sky_state current_sky = NIGHT; ///< holds the actual current state of the bg in 
  * \enum state
  * \brief Badly titled, but this is for the actual state of the game as a whole. Used for determining which screen to draw, what to do with player input, and what game logic to use.
  */
-typedef enum {INTRO, MAIN_MENU, GAME, HIGH_SCORES} state;
+typedef enum {INTRO, MAIN_MENU, GAME, LOCAL_SCORES} state;
 state game_state = INTRO; ///< Tracks current state of the game.
-
 
 //these numbers are either tile indexes or they're offsets from a tile index
 //for example, the first brick tile is tile 11 in the foreground tileset
@@ -130,9 +129,10 @@ state game_state = INTRO; ///< Tracks current state of the game.
 #define FRAME_L 8 ///< offset from start of menu tiles to the left edge frame tile
 #define FRAME_R 9 ///< offset from start of menu tiles to the right edge frame tile
 #define CURSOR 10 ///< offset from start of menu tiles to the cursor tile
+#define UPCURSOR 11 ///< offset from start of menu tiles to the cursor tile
 
 void processMainMenu(void);
-void processHighScoreMenu(void);
+void processLocalHighScoreMenu(void);
 void drawIntro(void);
 void processIntro(void);
 void initIntro(void);
@@ -146,11 +146,10 @@ static void gameSetup(void);
 void drawFrame(void);
 void drawMainMenu(void);
 void refreshMainMenuSound(void);
-//void drawOptionsMenu(void);
 void drawLocalHighScoreMenu(void);
-void drawMenuCursor(void);
+void drawMenuCursor(bool up);
 void eraseMenuCursor(void);
-void SaveScore(u8 hiscore);
+void Save(u8 hiscore);
 void LoadScore(u8 index0, u8 index1);
 void plusScore(void);
 u8 checkEeprom(void);
@@ -169,6 +168,8 @@ int main(){
 	//looping back and forth forever (cards against humanity reference)
 	while(1)
 	{
+
+
 		//some basic prep work performed once before our custom intro
 		if(game_state == INTRO)
 		{
@@ -197,7 +198,7 @@ int main(){
 		while(game_state == MAIN_MENU)
 		{
 			WaitVsync(1);
-			drawMenuCursor();
+			drawMenuCursor(false);
 			processMainMenu();
 		}
 		if(game_state== GAME)
@@ -218,7 +219,7 @@ int main(){
 			processPlayerMotion(); //update player position
 			processSprites(); //updates and moves player image to player position
 		}
-		if(game_state == HIGH_SCORES)
+		if(game_state == LOCAL_SCORES)
 		{
 			FadeOut(0,true);
 			SetTileTable(title_tiles);
@@ -229,15 +230,16 @@ int main(){
 			if(score > topscores[9])
 			{
 			    LoadScore(0, 9); //load top 10 saved high scores
-			    SaveScore(score); //save our current score if it's high enough
+			    Save(score); //save our current score if it's high enough
+			    score = 0;
 			    drawLocalHighScoreMenu(); //draw up the high score screen
 			}
 		}
 		//draw and accepts input for the local high score screen
-		while(game_state == HIGH_SCORES)
+		while(game_state == LOCAL_SCORES)
 		{
 			WaitVsync(1);
-			processHighScoreMenu();
+			processLocalHighScoreMenu();
 		}
     }
 }
@@ -259,27 +261,6 @@ static void initialSetup()
 	SetMasterVolume(0xff); //set volume to max
 	StartSong(midisong); //start playing the main theme
 	ClearVram(); //fill entire screen with first tile in the tileset (blank the screen)
-
-	//set up some convenience variables for changing player image and drawing the score
-	player_sprites[0]=ghost0;
-	player_sprites[1]=ghost1;
-	player_sprites[2]=ghost2;
-	player_sprites[3]=ghost3;
-	player_sprites[4]=ghost4;
-	player_sprites[5]=ghost5;
-	player_sprites[6]=ghost6;
-	player_sprites[7]=ghost7;
-	player_sprites[8]=ghost8;
-	numbers[0]=num0;
-	numbers[1]=num1;
-	numbers[2]=num2;
-	numbers[3]=num3;
-	numbers[4]=num4;
-	numbers[5]=num5;
-	numbers[6]=num6;
-	numbers[7]=num7;
-	numbers[8]=num8;
-	numbers[9]=num9;
 
 	//checks if our desired eeprom block is setup correctly,
 	//if not, it wipes it so we don't have to deal with garbage data in the high score list
@@ -317,7 +298,7 @@ void processMainMenu(void)
 			{
 				seedprng(start_seed);
 				//switch our game state to high scores, which pops us out of the main menu and into the high scores menu (refer to main function)
-				game_state = HIGH_SCORES;
+				game_state = LOCAL_SCORES;
 			}
 		}
 		if(joy&BTN_UP) //player pressed up
@@ -434,15 +415,17 @@ void processControls(void){
 			if(lastbuttons!=joy) //if we're pressing a new button, not holding one
 			{
 				yspeed = -jumpspeed; //make player jump up
-				TriggerFx(4,0x88,true);//play our bouncing sound effects
-				TriggerFx(5,0x88,true);
+				TriggerFx(2,0x88,true);//play our bouncing sound effects
+				TriggerFx(3,0x88,true);
 				grav_tick=1; //reset gravity ticks. doing this ensures that no matter where the gravity timer was, we always get a consistent jump height
 			}
 		}
 		else if(joy&BTN_START) //if player is dead and start was pressed
 		{
 			if(deathclock<105)
-			game_state = HIGH_SCORES; //exit main game state, enter high score screen state (refer to main function)
+			{
+				game_state = LOCAL_SCORES; //exit main game state, enter high score screen state (refer to main function)
+			}
 		}
 
 		if(joy&BTN_SELECT)//alive or note, if select was pressed...
@@ -520,7 +503,7 @@ void loadNextStripe(void)
 	    	build_pipe++; //advance one in our arrays that track collision data, reset to 0 if we're above 4 (max 3 should be on screen at once so 4 are tracked at once to avoid errors)
 	    	if(build_pipe > 3)
 	    		build_pipe = 0;
-			for(u8 y=0; y < VRAM_TILES_V; y++) //draw the vertical stripe of tiles
+			for(u8 y=0; y < SCREEN_TILES_V; y++) //draw the vertical stripe of tiles
 			{
 				if(y == pipe_gap-1) //draw foreground bricks
 				{
@@ -543,7 +526,7 @@ void loadNextStripe(void)
 	    else if(pipe_col_drawn <= (pipe_width-1)) //if we're not at the far left or right of an obstacle column, but we're drawing the middle of it
 		{
 			//draw pipe column
-			for(u8 y=0; y < VRAM_TILES_V; y++)
+			for(u8 y=0; y < SCREEN_TILES_V; y++)
 			{
 				if(y == pipe_gap-1) //draw foreground bricks
 				{
@@ -567,7 +550,7 @@ void loadNextStripe(void)
 	    else if(pipe_col_drawn <= (pipe_width)) //if we're drawing the far right part of an obstacle column
 		{
 			//draw pipe column
-			for(u8 y=0; y < VRAM_TILES_V; y++)
+			for(u8 y=0; y < SCREEN_TILES_V; y++)
 			{
 				if(y == pipe_gap-1) //draw foreground bricks
 				{
@@ -600,7 +583,7 @@ void loadNextStripe(void)
 	else //not drawing an obstacle column, so just draw normal background tiles
 	{
 		bg[drawX] = 1;
-		for(u8 y=0; y < VRAM_TILES_V; y++)
+		for(u8 y=0; y < SCREEN_TILES_V; y++)
 		{
 			if(y<ground_tiles-3) //above a certain point, draw generic sky
 			{
@@ -653,7 +636,7 @@ void processPlayerMotion(void){
 	{
 		if(scrollingOn) //if we're currently alive
 		{
-			TriggerFx(3,0x7f,true); //play collision sound
+			TriggerFx(1,0x7f,true); //play collision sound
 		    scrollingOn = false; //turn off scrolling (stop being alive)
 		}
 	}
@@ -678,7 +661,7 @@ void processPlayerMotion(void){
 		{
 			if(scrollingOn) //if we're still alive, play collision sound and stop being alive
 			{
-				TriggerFx(3,0x7f,true);
+				TriggerFx(1,0x7f,true);
 				scrollingOn = false;
 			}
 			yspeed=0; //stops us vertically (and accidentally creates a cool megaman friction-y sliding effect through the column)
@@ -690,7 +673,7 @@ void processPlayerMotion(void){
 		deathclock--;
 		if(deathclock==0) //it's been 120 frames (2 seconds) since player died
 		{
-			game_state = HIGH_SCORES; //switch out of main game state to high score screen state (see main function)
+			game_state = LOCAL_SCORES; //switch out of main game state to high score screen state (see main function)
 		}
 	}
 
@@ -756,6 +739,8 @@ void processSprites(void){
  */
 void LoadScore(u8 index0, u8 index1)
 {
+	if(index1 > 9)
+		index1 = 9;
 	//Initialize a struct and define the block id
 	struct EepromBlockStruct ebs; //create a temporary eeprom block struct
 	ebs.id = save_block; //set it to read this game's block
@@ -770,7 +755,7 @@ void LoadScore(u8 index0, u8 index1)
  * \brief Accepts a numerical score, saves it to eeprom if it's high enough.
  * \param hiscore the value to compare and possibly save to eeprom
  */
-void SaveScore(u8 hiscore)
+void Save(u8 hiscore)
 {
 	struct EepromBlockStruct ebs; //create a temporary eeprom block struct for use
 	ebs.id = save_block; //assign it to this game's eeprom block number
@@ -833,30 +818,30 @@ void drawFrame(void)
 	u8 drawXTemp = fakemod((drawX+2),VRAM_TILES_H);//variable used for tracking horizontal position of tiles as we draw them. drawing is done top to bottom left to right
 
 	SetTile(drawXTemp, 1, FRAME_TL); //place top left corner tile
-	for(u8 y=2; y<VRAM_TILES_V-2; y++)//draw lefthand border
+	for(u8 y=2; y<SCREEN_TILES_V-2; y++)//draw lefthand border
 	{
 		SetTile(drawXTemp, y, FRAME_L);
 	}
-	SetTile(drawXTemp, VRAM_TILES_V-2, FRAME_BL); //place bottom left corner tile
+	SetTile(drawXTemp, SCREEN_TILES_V-2, FRAME_BL); //place bottom left corner tile
 
 	for(u8 x=0; x<24; x++)//draw middle portion of frame until we reach the right hand side
 	{
 		drawXTemp=fakemod((drawXTemp+1),VRAM_TILES_H);
 		SetTile(drawXTemp, 1, FRAME_T); //draw top piece
-		for(u8 y=2; y<VRAM_TILES_V-2; y++) //fill middle with black
+		for(u8 y=2; y<SCREEN_TILES_V-2; y++) //fill middle with black
 		{
 			SetTile(drawXTemp, y, BLACK);
 		}
-		SetTile(drawXTemp, VRAM_TILES_V-2, FRAME_B); //draw bottom piece
+		SetTile(drawXTemp, SCREEN_TILES_V-2, FRAME_B); //draw bottom piece
 	}
 
 	drawXTemp=fakemod((drawXTemp+1),VRAM_TILES_H);
 	SetTile(drawXTemp, 1, FRAME_TR); //place top right corner tile
-	for(u8 y=2; y<VRAM_TILES_V-2; y++) //draw righthand border
+	for(u8 y=2; y<SCREEN_TILES_V-2; y++) //draw righthand border
 	{
 		SetTile(drawXTemp, y, FRAME_R);
 	}
-	SetTile(drawXTemp, VRAM_TILES_V-2, FRAME_BR); //place bottom right corner tile
+	SetTile(drawXTemp, SCREEN_TILES_V-2, FRAME_BR); //place bottom right corner tile
 
 }
 
@@ -899,13 +884,13 @@ void drawMainMenu()
 	drawFrame(); //draw up generic menu frame
 
 	//draw fancy title. broken into pieces so it can be reused as much as possible to save space
-	DrawMap2(fakemod((drawX+7),VRAM_TILES_H),4,title_gh);
-	DrawMap2(fakemod((drawX+13),VRAM_TILES_H),4,title_o);
-	DrawMap2(fakemod((drawX+16),VRAM_TILES_H),4,title_st);
-	DrawMap2(fakemod((drawX+21),VRAM_TILES_H),4,title_y);
-	DrawMap2(fakemod((drawX+9),VRAM_TILES_H),9,title_gh);
-	DrawMap2(fakemod((drawX+15),VRAM_TILES_H),10,title_moon);
-	DrawMap2(fakemod((drawX+18),VRAM_TILES_H),9,title_st);
+	DrawMap(fakemod((drawX+7),VRAM_TILES_H),4,title_gh);
+	DrawMap(fakemod((drawX+13),VRAM_TILES_H),4,title_o);
+	DrawMap(fakemod((drawX+16),VRAM_TILES_H),4,title_st);
+	DrawMap(fakemod((drawX+21),VRAM_TILES_H),4,title_y);
+	DrawMap(fakemod((drawX+9),VRAM_TILES_H),9,title_gh);
+	DrawMap(fakemod((drawX+15),VRAM_TILES_H),10,title_moon);
+	DrawMap(fakemod((drawX+18),VRAM_TILES_H),9,title_st);
 
 	//draw menu options
 	Print(fakemod((drawX+11),VRAM_TILES_H),15,PSTR("START GAME"));
@@ -929,7 +914,7 @@ void drawLocalHighScoreMenu(void)
 	menu_y = 15;
 	ClearVram(); //blank screen
 	drawFrame(); //draw generic gui frame
-	Print(fakemod((drawX+6),VRAM_TILES_H),3,PSTR("LOCAL TOP SCORES:")); //write menu title at top of screen
+	Print(fakemod((drawX+8),VRAM_TILES_H),3,PSTR("LOCAL HI SCORES")); //write menu title at top of screen
 
 	for(u8 i = 0; i < 10; i++) //print scores 1 - 10 from topscores array
 	{
@@ -942,9 +927,14 @@ void drawLocalHighScoreMenu(void)
 /**
  * \brief Helper function to draw cursor for menus.
  */
-void drawMenuCursor()
+void drawMenuCursor(bool up)
 {
-	SetTile(menu_x,menu_y, CURSOR);
+	if(up)
+	{
+		SetTile(menu_x,menu_y, UPCURSOR);
+	}
+	else
+		SetTile(menu_x,menu_y, CURSOR);
 }
 
 /**
@@ -967,18 +957,21 @@ void refreshMainMenuSound()
 }
 
 /**
- * \brief Processes controller input during high score menu.
+ * \brief Processes controller input during local high score menu.
  */
-void processHighScoreMenu(void)
+void processLocalHighScoreMenu(void)
 {
 	//read in our player one joypad input
 	joy=ReadJoypad(0);
 
 	//if player 1 is currently pressing start
-	if((joy&BTN_START) && (joy != lastbuttons))
+	if(joy != lastbuttons)
 	{
-		//switch our game state to game, which pops us out of the main menu and into the game (refer to main function)
-		game_state = GAME;
+		if((joy&BTN_START))
+		{
+			//switch our game state to game, which pops us out of the main menu and into the game (refer to main function)
+			game_state = GAME;
+		}
 	}
 	lastbuttons=joy;
 }
@@ -1010,8 +1003,18 @@ void wipeEeprom(void)
 	struct EepromBlockStruct ebs;//create temp eeprom block struct for use
 	ebs.id = save_block; //assign temp struct to this game's eeprom block id
 
-	for(u8 i = 0; i < 30; i++) //cycle through all 30 data bytes and set them to 0
+	for(u8 i = 0; i < 17; i++) //cycle through all 30 data bytes and set them to 0
 		ebs.data[i] = 0x00;
+
+	ebs.data[18] = 'D';
+	ebs.data[19] = 'E';
+	ebs.data[20] = 'F';
+	ebs.data[21] = 'A';
+	ebs.data[22] = 'U';
+	ebs.data[23] = 'L';
+	ebs.data[24] = 'T';
+	ebs.data[25] = ' ';
+
 
 	ebs.data[17] = 0x17; //set magic number so the block will check out as being good in the future
 	EepromWriteBlock(&ebs); //write to eeprom
@@ -1048,9 +1051,9 @@ void drawIntro(void)
 		MapSprite2(0, current_sprite, 0); //actually reassign the sprites in memory to the correct images
 	}
 	MoveSprite(0, player_x, player_y, 3, 3); //position ghost sprite
-	DrawMap2(13,12,map_uzeboxlogo); //draw uzebox logo and name
+	DrawMap(13,12,map_uzeboxlogo); //draw uzebox logo and name
     if((player_x > 104)&&(player_x<108)) //at the right moment, draw the shiny reflection on the logo
-        DrawMap2(13,12,map_uzeboxlogo2);
+        DrawMap(13,12,map_uzeboxlogo2);
 }
 
 /**
@@ -1065,7 +1068,7 @@ void processIntro(void)
 	player_y = (u8)(100+pgm_read_byte(&(sine32[wave_tick]))); //set ghost height based on sine function
 	player_x++; //move ghost left to right 1 pixel
 	if(player_x == 104) //at correct moment, trigger sound effect
-		TriggerFx(13,0x88,true);
+		TriggerFx(4,0x88,true);
 	if(player_x > 224) //when ghost is off screen, end intro and move to main menu
 	{
 		ResumeSong();
